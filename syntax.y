@@ -2,6 +2,8 @@
 %{
 #include <stdio.h>
 #include "lex.yy.c"
+#include "errorcheck.h"
+#include "node.h"
 //#define YYDEBUG 1
 int yycolumn = 1;
 int ERROR=0;
@@ -16,46 +18,15 @@ int yyerror(char *s)
 	extern char *yytext;
 	int len=strlen(yytext);
 	int i;
-	fprintf(stderr, "Error type B near symbol '%s' on line %d\n", yytext, yylineno);
+	fprintf(stderr, "Error type B near symbol '%s' on line %d.\n", yytext, yylineno);
 	//yyparse();
 	return 0;
 }
-void pre(struct node*a,int level)//level to mark father node and children node
-{
-    if(a!=NULL)
-    {
-	for(int i=level;i>0;i--)	
-	printf("  ");
-	printf("%s ",a->name);
-	if(a->type==4&&strcmp(a->name,"TYPE"))    	
-	{	
-		printf("(%d)",a->line);               
-	}
-	else if(a->type==3)
-	{
-		printf(": %f",a->value.fvalue); 
-	}
-	else if(a->type==2)
-	{
-		printf(": %d",a->value.ivalue); 
-	}
-	else if(a->type==1)
-	{
-		printf(": %s",a->value.IDname); 
-	}
-	else if(!strcmp(a->name,"TYPE"))
-	{
-		printf(": %s",a->value.IDname); 
-	}
-	printf("\n");
-        pre(a->left,level+1);
-        pre(a->right,level);
-    }
-}
+
 %}
 %union{
-struct node* np;
-double b;
+	struct node* np;
+	double b;
 };
 %token <np> INT FLOAT ID
 %token <np> SEMI COMMA ASSIGNOP
@@ -65,12 +36,19 @@ double b;
 %token <np> LP RP LB RB LC RC 
 %token <np> STRUCT RETURN IF ELSE WHILE OTHER 
 %type <np> Program ExtDefList ExtDef ExtDecList Specifier StructSpecifier OptTag Tag VarDec FunDec VarList ParamDec CompSt StmtList Stmt DefList Def DecList Dec Exp Args error
-%left LP RP LB RB PLUS MINUS STAR DIV AND OR RELOP DOT
-%right NOT ASSIGNOP
+%left LP RP LB RB PLUS MINUS STAR DIV AND OR RELOP DOT ASSIGNOP
+%right NOT 
 %nonassoc ELSE
 %%
 Program:
-ExtDefList{$$=gentree("Program",$1,NULL);if(!ERROR)pre($$,0);else printf("more than %d error(s) found.\n",ERROR);}
+ExtDefList{
+	$$=gentree("Program",$1,NULL);
+	if(!ERROR){
+		//pre($$,0);
+		errorcheck($$);
+		}
+	else printf("more than %d error(s) found.\n",ERROR);
+}
 
 ;
 ExtDefList:
@@ -101,7 +79,7 @@ VarDec: ID {$$=gentree("VarDec",$1,NULL);}
 FunDec: ID LP VarList RP{$$=argtree("FunDec",4,$1,$2,$3,$4);}
 | ID LP RP{$$=argtree("FunDec",3,$1,$2,$3);}
 ;
-VarList: ParamDec COMMA VarList{$$=argtree("ValList",3,$1,$2,$3);}
+VarList: ParamDec COMMA VarList{$$=argtree("VarList",3,$1,$2,$3);}
 | ParamDec{$$=gentree("VarList",$1,NULL);}
 ;
 ParamDec: Specifier VarDec{$$=gentree("ParamDec",$1,$2);}

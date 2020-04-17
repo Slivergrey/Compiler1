@@ -3,84 +3,14 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include "node.h"
 extern int yycolumn;
-union data
-{
-	char* IDname;
-	int ivalue;
-	float fvalue;
-};
-struct node{
-	int line;
-	char name[10];
-	struct node* left;
-	struct node* right;
-	int type;//0 for others, 1 for id ,2 for int,3 for float	
-	union data value;
-};
-struct node* gennode(int line, char* name,struct node* left,struct node* right,int type,char* text)
-{
-//	printf("node generating:line %d, name %s\n",line,name);	
-	struct node* newnode;
-	newnode = (struct node*)malloc(sizeof(struct node));
-	newnode->line=line;
-	strcpy(newnode->name,name);
-	newnode->left=left;
-	newnode->right=right;
-	newnode->type=type;
-	if(type==1||!strcmp(name,"TYPE")||!strcmp(name,"RELOP"))
-{
-	newnode->value.IDname=(char*)malloc(strlen(text));
-	strcpy(newnode->value.IDname,text);
-}
-	else if(type==2)
-	newnode->value.ivalue=atoi(text);
-	else if(type==3)
-	newnode->value.fvalue=atof(text);
-//	printf("node generate success:line %d, name %s\n",line,name);	
-	return newnode;
-}
-struct node* argtree(char*name,int num,...)
-{
-	va_list list;
-	struct node* newnode;
-	newnode = (struct node*)malloc(sizeof(struct node));
-	strcpy(newnode->name,name);
-    	va_start(list,num);
-	if(num==0)
-	newnode->line=yylineno;
-	if(num>0)
-	{
-		struct node* temp=va_arg(list, struct node*);
-		newnode->left=temp;
-		newnode->line=temp->line;
-		if(num>=2) 
-		{
-		    for(int i=0; i<num-1; ++i)
-		    {
-			while(temp->right)temp=temp->right;		        
-			temp->right=va_arg(list,struct node*);
-		        temp=temp->right;
-		    }
-		}
-	}
-	newnode->type=4;
-//	printf("arg generate success:line %d, name %s\n",newnode->line,name);
-	return newnode;
-}
-struct node* gentree(char* name, struct node* left,struct node* right)
-{
-	if(left==NULL)
-	argtree(name,0);
-	else	
-	argtree(name,2,left,right);
-}
 
 %}
 
 INTD [1-9][0-9]*|[0]
 INTD_ERROR [1-9][0-9a-zA-Z]*
-INTH [0][Xx]([1-9a-fA-F][0-9a-fA-F]*|[0])
+INTH [0][Xx]([0-9a-fA-F][0-9a-fA-F]*|[0])
 INTH_ERROR [0][Xx]([1-9a-zA-Z_][0-9a-zA-Z_S]*|[0])
 INTO [0][0-7]*
 INTO_ERROR [0][0-9a-zA-Z_]*
