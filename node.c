@@ -70,7 +70,12 @@ void pre(struct node*a,int level)//level to mark father node and children node
     {
 	for(int i=level;i>0;i--)	
 	printf("  ");
+	printf("%d",level);
 	printf("%s ",a->name);
+	if(!strcmp(a->name,"RELOP"))
+	{
+	//	printf(":%s",a->value.IDname);
+	}
 	if(a->type==4&&strcmp(a->name,"TYPE"))    	
 	{	
 		printf("(%d)",a->line);               

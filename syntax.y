@@ -4,6 +4,7 @@
 #include "lex.yy.c"
 #include "errorcheck.h"
 #include "node.h"
+#include "midcode.h"
 //#define YYDEBUG 1
 int yycolumn = 1;
 int ERROR=0;
@@ -29,23 +30,36 @@ int yyerror(char *s)
 	double b;
 };
 %token <np> INT FLOAT ID
-%token <np> SEMI COMMA ASSIGNOP
+%token <np> SEMI COMMA
 %token <np> RELOP
-%token <np> PLUS MINUS STAR DIV AND OR
-%token <np> DOT NOT TYPE
+%token <np> ASSIGNOP
+%token <np> PLUS MINUS
+
+%token <np> STAR DIV
+
+%token <np> AND OR NOT
+%token <np> DOT TYPE
 %token <np> LP RP LB RB LC RC 
 %token <np> STRUCT RETURN IF ELSE WHILE OTHER 
-%type <np> Program ExtDefList ExtDef ExtDecList Specifier StructSpecifier OptTag Tag VarDec FunDec VarList ParamDec CompSt StmtList Stmt DefList Def DecList Dec Exp Args error
-%left LP RP LB RB PLUS MINUS STAR DIV AND OR RELOP DOT ASSIGNOP
-%right NOT 
+%type <np> Exp
+%type <np>  Program ExtDefList ExtDef ExtDecList Specifier StructSpecifier OptTag Tag VarDec FunDec VarList ParamDec CompSt StmtList Stmt DefList Def DecList Dec Args error
+%left OR
+%left AND
+%left DOT RELOP ASSIGNOP
+
+%left LP RP RB PLUS MINUS
+%left STAR DIV 
+
+%right NOT LB 
 %nonassoc ELSE
 %%
 Program:
 ExtDefList{
 	$$=gentree("Program",$1,NULL);
 	if(!ERROR){
-		//pre($$,0);
-		errorcheck($$);
+		pre($$,0);
+//		errorcheck($$);
+		gencode($$);
 		}
 	else printf("more than %d error(s) found.\n",ERROR);
 }
@@ -55,42 +69,55 @@ ExtDefList:
 ExtDef ExtDefList{$$=gentree("ExtDefList",$1,$2);}
 | {$$=NULL;}
 ;
-ExtDef:Specifier ExtDecList SEMI{$$=argtree("ExtDef",3,$1,$2,$3);}
+ExtDef:
+Specifier ExtDecList SEMI{$$=argtree("ExtDef",3,$1,$2,$3);}
 | Specifier SEMI{$$=gentree("ExtDef",$1,$2);}
 | Specifier FunDec CompSt{$$=argtree("ExtDef",3,$1,$2,$3);}
 ;
-ExtDecList:VarDec{$$=gentree("ExtDecList",$1,NULL);}
+ExtDecList:
+VarDec{$$=gentree("ExtDecList",$1,NULL);}
 | VarDec COMMA ExtDecList{$$=argtree("ExtDecList",3,$1,$2,$3);}
 ;
-Specifier: TYPE{$$=gentree("Specifier",$1,NULL);}
+Specifier:
+ TYPE{$$=gentree("Specifier",$1,NULL);}
 | StructSpecifier{$$=gentree("Specifier",$1,NULL);}
 ;
-StructSpecifier: STRUCT OptTag LC DefList RC{$$=argtree("StructSpecifier",5,$1,$2,$3,$4,$5);}
+StructSpecifier:
+ STRUCT OptTag LC DefList RC{$$=argtree("StructSpecifier",5,$1,$2,$3,$4,$5);}
 | STRUCT Tag{$$=gentree("StructSpecifier",$1,$2);}
 ;
-OptTag: ID{$$=gentree("OptTag",$1,NULL);}
+OptTag:
+ ID{$$=gentree("OptTag",$1,NULL);}
 |{$$=NULL;}
 ;
-Tag: ID{$$=gentree("Tag",$1,NULL);}
+Tag: 
+ID{$$=gentree("Tag",$1,NULL);}
 ;
-VarDec: ID {$$=gentree("VarDec",$1,NULL);}
+VarDec:
+ ID {$$=gentree("VarDec",$1,NULL);}
 | VarDec LB INT RB{$$=argtree("VarDec",4,$1,$2,$3,$4);}
 ;
-FunDec: ID LP VarList RP{$$=argtree("FunDec",4,$1,$2,$3,$4);}
+FunDec:
+ ID LP VarList RP{$$=argtree("FunDec",4,$1,$2,$3,$4);}
 | ID LP RP{$$=argtree("FunDec",3,$1,$2,$3);}
 ;
-VarList: ParamDec COMMA VarList{$$=argtree("VarList",3,$1,$2,$3);}
+VarList:
+ ParamDec COMMA VarList{$$=argtree("VarList",3,$1,$2,$3);}
 | ParamDec{$$=gentree("VarList",$1,NULL);}
 ;
-ParamDec: Specifier VarDec{$$=gentree("ParamDec",$1,$2);}
+ParamDec:
+ Specifier VarDec{$$=gentree("ParamDec",$1,$2);}
 ;
-CompSt: LC DefList StmtList RC{$$=argtree("CompSt",4,$1,$2,$3,$4);}
+CompSt:
+ LC DefList StmtList RC{$$=argtree("CompSt",4,$1,$2,$3,$4);}
 |error RC{$$=gentree("CompSt",$1,$2);ERROR++;}
 ;
-StmtList:Stmt StmtList{$$=gentree("StmtList",$1,$2);}
+StmtList:
+Stmt StmtList{$$=gentree("StmtList",$1,$2);}
 |{$$=NULL;}
 ;
-Stmt:Exp SEMI{$$=gentree("Stmt",$1,$2);}
+Stmt:
+Exp SEMI{$$=gentree("Stmt",$1,$2);}
 | CompSt{$$=gentree("Stmt",$1,NULL);}
 | RETURN Exp SEMI{$$=argtree("Stmt",3,$1,$2,$3);}
 | IF LP Exp RP Stmt{$$=argtree("Stmt",5,$1,$2,$3,$4,$5);}
@@ -102,28 +129,32 @@ DefList:
 Def DefList {$$=gentree("DefList",$1,$2);}
 |{$$=NULL;}
 ;
-Def: Specifier DecList SEMI{$$=argtree("Def",3,$1,$2,$3);}
+Def:
+ Specifier DecList SEMI{$$=argtree("Def",3,$1,$2,$3);}
 ;
-DecList: Dec{$$=gentree("DecList",$1,NULL);}
+DecList:
+ Dec{$$=gentree("DecList",$1,NULL);}
 | Dec COMMA DecList{$$=argtree("DecList",3,$1,$2,$3);}
 ;
-Dec: VarDec{$$=gentree("Dec",$1,NULL);}
+Dec:
+ VarDec{$$=gentree("Dec",$1,NULL);}
 | VarDec ASSIGNOP Exp{$$=argtree("Dec",3,$1,$2,$3);}
 ;
-Exp: Exp ASSIGNOP Exp{$$=argtree("Exp",3,$1,$2,$3);}
-| Exp AND Exp{$$=argtree("Exp",3,$1,$2,$3);}
+Exp:
+Exp AND Exp{$$=argtree("Exp",3,$1,$2,$3);}
 | Exp OR Exp{$$=argtree("Exp",3,$1,$2,$3);}
 | Exp RELOP Exp{$$=argtree("Exp",3,$1,$2,$3);}
+| Exp DIV Exp{$$=argtree("Exp",3,$1,$2,$3);}
+| Exp STAR Exp{$$=argtree("Exp",3,$1,$2,$3);}
 | Exp PLUS Exp{$$=argtree("Exp",3,$1,$2,$3);}
 | Exp MINUS Exp{$$=argtree("Exp",3,$1,$2,$3);}
-| Exp STAR Exp{$$=argtree("Exp",3,$1,$2,$3);}
-| Exp DIV Exp{$$=argtree("Exp",3,$1,$2,$3);}
+| Exp ASSIGNOP Exp{$$=argtree("Exp",3,$1,$2,$3);}
 | LP Exp RP{$$=argtree("Exp",3,$1,$2,$3);}
 | MINUS Exp{$$=gentree("Exp",$1,$2);}
 | NOT Exp{$$=gentree("Exp",$1,$2);}
-| ID LP Args RP{$$=argtree("Stmt",4,$1,$2,$3,$4);}
+| ID LP Args RP{$$=argtree("Exp",4,$1,$2,$3,$4);}
 | ID LP RP{$$=argtree("Exp",3,$1,$2,$3);}
-| Exp LB Exp RB{$$=argtree("Stmt",4,$1,$2,$3,$4);}
+| Exp LB Exp RB{$$=argtree("Exp",4,$1,$2,$3,$4);}
 | Exp DOT ID{$$=argtree("Exp",3,$1,$2,$3);}
 | ID{$$=gentree("Exp",$1,NULL);}
 | INT{$$=gentree("Exp",$1,NULL);}
