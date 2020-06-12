@@ -6,6 +6,7 @@
 #include "node.h"
 int MAX_SYM=0x4000;
 int label=1;
+int offsetnow=0;
 extern char* addrout;
 int checkstr(node* head)
 {
@@ -46,6 +47,7 @@ struct Sym{
 	enum{UNUSED,INT,FLOAT,ARRAY,FUNC,USING,STARINT,FUNARRAY}type;
 	char* ID;
 	an* node;
+	int offset;
 };
 struct Operand_ {
 enum { VARIABLE, CONSTANT, ADDRESS,STAR,FUNCNAME,FUNPARAM} kind;
@@ -130,6 +132,8 @@ int new_id(sym* table_sym)
 		}
 	}
 	table_sym[dec_id].type=USING;
+	table_sym[dec_id].offset=offsetnow;
+	offsetnow+=4;
 	return dec_id;
 }
 ics* translate_param(node* VarList,sym* table_sym,ics* head)
@@ -175,7 +179,7 @@ ics* translate_func(node* FunDec,sym* table_sym,ics* head)
 	fundec.u.dec_val.dec_val=(Operand)malloc(sizeof(struct Operand_));
 	fundec.u.dec_val.dec_val->kind=FUNCNAME;
 	fundec.u.dec_val.dec_val->u.var_no=dec_id;
-	printf("recognize function! name: %s, ID:%d\n",table_sym[dec_id].ID,dec_id);
+//	printf("recognize function! name: %s, ID:%d\n",table_sym[dec_id].ID,dec_id);
 	head=addcode(&fundec,head);
 	//printf("%d\n",head->code.kind);
 	if(!strcmp(FunDec->left->right->right->name,"VarList"))
@@ -188,7 +192,7 @@ ics* translate_func(node* FunDec,sym* table_sym,ics* head)
 }
 ics * translate_Cond(node* Exp,ics*current,int labelt,int labelf,sym* table_sym)
 {
-	printf("in translate_Cond!\n");
+	//printf("in translate_Cond!\n");
 	if(!strcmp(Exp->left->name,"NOT")&&!strcmp(Exp->left->right->name,"Exp"))
 	{
 		//printf("find NOT!\n");
@@ -347,10 +351,10 @@ ics* translate_Array(node* Exp,ics* current,sym* table_sym,int topid)
 }
 ics* translate_Exp(node* Exp,ics* current,sym* table_sym,int topid)
 {
-	printf("in Exp!,line:%d\n",Exp->line);
+	//printf("in Exp!,line:%d\n",Exp->line);
 
-	if(Exp->left)
-	printf("Exp->left->name:%s\n",Exp->left->name);
+//	if(Exp->left)
+//	printf("Exp->left->name:%s\n",Exp->left->name);
 	if(!strcmp(Exp->left->name,"INT"))
 	{
 		int value=Exp->left->value.ivalue;
@@ -402,7 +406,7 @@ ics* translate_Exp(node* Exp,ics* current,sym* table_sym,int topid)
 		temp.kind=ASSIGN;
 		int temp1=get_valid(Exp->left->left->value.IDname,table_sym);
 		int temp2=new_id(table_sym);
-		printf("here!\n");
+//		printf("here!\n");
 		current=translate_Exp(Exp->left->right->right,current,table_sym,temp2);
 		temp.u.assign.left=(Operand)malloc(sizeof(struct Operand_));
 		temp.u.assign.left->u.var_no=temp1;
@@ -417,7 +421,7 @@ ics* translate_Exp(node* Exp,ics* current,sym* table_sym,int topid)
 		else 
 		temp.u.assign.right->kind=VARIABLE;
 		current=addcode(&temp,current);
-		printf("ASSIGN END!\n");
+//		printf("ASSIGN END!\n");
 	}
 	else if(!strcmp(Exp->left->name,"Exp")&&!strcmp(Exp->left->right->name,"ASSIGNOP")&&!strcmp(Exp->left->right->right->name,"Exp"))
 	{
@@ -597,7 +601,7 @@ ics* translate_Exp(node* Exp,ics* current,sym* table_sym,int topid)
 	}
 	else if(!strcmp(Exp->left->name,"NOT")||!strcmp(Exp->left->right->name,"AND")||!strcmp(Exp->left->right->name,"RELOP")||!strcmp(Exp->left->right->name,"OR"))
 	{
-		printf("in COND!\n");
+	//	printf("in COND!\n");
 		int label1= label++;	
 		int label2= label++;
 		ic temp;
@@ -674,6 +678,8 @@ ics* translate_Def(node* Def,ics*current,sym* table_sym)
 			temp.u.dec_addr.size=size;
 			temp.u.dec_addr.valid=dec_id;
 	//		printf("find array v%d size %d",dec_id,size);
+	//		table_sym[dec_id].offset=offsetnow;
+			offsetnow+=size*4;
 			current=addcode(&temp,current);
 		}
 		else if(!DecList->left->left->right)//no assign
@@ -768,7 +774,7 @@ ics* translate_CompSt(node*CompSt,ics*current,sym* table_sym)
 			current=translate_StmtList(CompSt->left->right,current,table_sym);
 		}
 	}
-	printf("exit CompSt!\n");
+//	printf("exit CompSt!\n");
 	return current;
 }
 ics* translate_Stmt(node* Stmt,ics* current,sym* table_sym)
@@ -797,7 +803,7 @@ ics* translate_Stmt(node* Stmt,ics* current,sym* table_sym)
 	}
 	else if(!strcmp(Stmt->left->name,"IF")&&!Stmt->left->right->right->right->right->right)
 	{
-		printf("IF\n");
+//		printf("IF\n");
 		int label1=label++;
 		int label2=label++;
 		current=translate_Cond(Stmt->left->right->right,current,label1,label2,table_sym);
@@ -813,7 +819,7 @@ ics* translate_Stmt(node* Stmt,ics* current,sym* table_sym)
 	}
 	else if(!strcmp(Stmt->left->name,"IF"))
 	{
-		printf("IF_ELSE!\n");
+//		printf("IF_ELSE!\n");
 		int label1=label++;
 		int label2=label++;
 		int label3=label++;
@@ -866,29 +872,42 @@ ics* translate_Stmt(node* Stmt,ics* current,sym* table_sym)
 }
 void printcode(ics* head,sym* table_sym)
 {
-	printf("now start to print code!\n");
+	//printf("now start to print code!\n");
 	ics* current=head;
 //	printf("writing address: %s",addrout);
 	FILE * out =fopen(addrout,"w");
+	fprintf(out,".data\n");
+	fprintf(out,"_prompt: .asciiz \"Enter an integer:\"\n_ret: .asciiz \"\\n\"\n");
+	fprintf(out,".globl main\n.text\n");
+	fprintf(out,"read:\nli $v0, 4\nla $a0, _prompt\nsyscall\nli $v0, 5\nsyscall\njr $ra\n\n");
+	fprintf(out,"write:\nli $v0, 1\n,syscall\nli $v0, 4\nla $a0, _ret\nsyscall\nmove $v0, $0\njr $ra\n\n");
 	while(current)
 	{
 		//printf("lineno:");
 		if(current->code.kind==DEC)
 		{
 		//	printf("FUNCTION %s\n",table_sym[current->code.u.dec_val.dec_val->u.var_no].ID);
-			fprintf(out,"FUNCTION %s :\n",table_sym[current->code.u.dec_val.dec_val->u.var_no].ID);
+			fprintf(out,"%s:\n",table_sym[current->code.u.dec_val.dec_val->u.var_no].ID);
+			if(!strcmp(table_sym[current->code.u.dec_val.dec_val->u.var_no].ID,"main"))
+			{
+				fprintf(out,"li $t1, 4\n");
+				fprintf(out,"sw $t1,0($sp)\n");
+			}
 		}
 		else if(current->code.kind==PARAM)
 		{
 		//	printf("PARAM v%d\n",current->code.u.dec_val.dec_val->u.var_no);
-			fprintf(out,"PARAM v%d\n",current->code.u.dec_val.dec_val->u.var_no);
+		//	fprintf(out,"PARAM v%d\n",current->code.u.dec_val.dec_val->u.var_no);
 		}
 		else if(current->code.kind==RETURN)
 		{
 			if(current->code.u.dec_val.dec_val->kind==VARIABLE)
 			{
 		//		printf("RETURN v%d\n",current->code.u.dec_val.dec_val->u.var_no);			
-				fprintf(out,"RETURN v%d\n",current->code.u.dec_val.dec_val->u.var_no);
+				fprintf(out,"lw $t1, %d($sp)\n",table_sym[current->code.u.dec_val.dec_val->u.var_no].offset);
+				fprintf(out,"move $v0, $t1\n");
+				fprintf(out,"jr $ra\n");
+				//fprintf(out,"RETURN v%d\n",current->code.u.dec_val.dec_val->u.var_no);
         }
 			else if(current->code.u.dec_val.dec_val->kind==CONSTANT)
 			{
@@ -897,7 +916,11 @@ void printcode(ics* head,sym* table_sym)
 		}
 		else if(current->code.kind==NEG)
 		{
-			fprintf(out,"v%d := #0 - v%d\n",current->code.u.neg.to_neg->u.var_no,current->code.u.neg.to_neg->u.var_no);
+			fprintf(out,"li $t1, 0\n");
+			fprintf(out,"lw $t2, %d($sp)\n",table_sym[current->code.u.neg.to_neg->u.var_no].offset);
+			fprintf(out,"sub $t2, $t1, $t2\n");
+			fprintf(out,"sw $t2, %d($sp)\n",table_sym[current->code.u.neg.to_neg->u.var_no].offset);
+		//	fprintf(out,"v%d := #0 - v%d\n",current->code.u.neg.to_neg->u.var_no,current->code.u.neg.to_neg->u.var_no);
 		}
 		else if(current->code.kind==ASSIGN)
 		{
@@ -906,12 +929,17 @@ void printcode(ics* head,sym* table_sym)
 				if(table_sym[current->code.u.assign.left->u.var_no].type==INT)
 				{
 					//printf("v%d := #%d\n",current->code.u.assign.left->u.var_no,current->code.u.assign.right->u.value_i);
-					fprintf(out,"v%d := #%d\n",current->code.u.assign.left->u.var_no,current->code.u.assign.right->u.value_i);
+					fprintf(out,"li $t1, %d\n",current->code.u.assign.right->u.value_i);
+					fprintf(out,"sw $t1, %d($sp)\n",table_sym[current->code.u.assign.left->u.var_no].offset);
+					//fprintf(out,"v%d := #%d\n",current->code.u.assign.left->u.var_no,current->code.u.assign.right->u.value_i);
 				}
 				else
 				{
 					//printf("*v%d := #%d\n",current->code.u.assign.left->u.var_no,current->code.u.assign.right->u.value_i);
-					fprintf(out,"*v%d := #%d\n",current->code.u.assign.left->u.var_no,current->code.u.assign.right->u.value_i);			
+					fprintf(out,"li $t1, %d\n",current->code.u.assign.right->u.value_i);
+					fprintf(out,"lw $t2, %d($sp)\n",table_sym[current->code.u.assign.left->u.var_no].offset);
+					fprintf(out,"sw $t1, 0($t2)\n");
+					//fprintf(out,"*v%d := #%d\n",current->code.u.assign.left->u.var_no,current->code.u.assign.right->u.value_i);			
 				}
 			}
 			else if(current->code.u.assign.right->kind==VARIABLE)
@@ -919,12 +947,19 @@ void printcode(ics* head,sym* table_sym)
 				if(table_sym[current->code.u.assign.left->u.var_no].type==INT)
 				{
 					//printf("v%d := v%d\n",current->code.u.assign.left->u.var_no,current->code.u.assign.right->u.var_no);
-					fprintf(out,"v%d := v%d\n",current->code.u.assign.left->u.var_no,current->code.u.assign.right->u.var_no);
+					fprintf(out,"lw $t1, %d($sp)\n",table_sym[current->code.u.assign.right->u.var_no].offset);
+					fprintf(out,"sw $t1, %d($sp)\n",table_sym[current->code.u.assign.left->u.var_no].offset);
+
+					//fprintf(out,"v%d := v%d\n",current->code.u.assign.left->u.var_no,current->code.u.assign.right->u.var_no);
+				
 				}
 				else
 				{
 					//printf("*v%d := v%d\n",current->code.u.assign.left->u.var_no,current->code.u.assign.right->u.var_no);
-					fprintf(out,"*v%d := v%d\n",current->code.u.assign.left->u.var_no,current->code.u.assign.right->u.var_no);			
+					fprintf(out,"lw $t1, %d($sp)\n",table_sym[current->code.u.assign.right->u.var_no].offset);
+					fprintf(out,"lw $t2, %d($sp)\n",table_sym[current->code.u.assign.left->u.var_no].offset);
+					fprintf(out,"sw $t1, 0($t2)\n");
+					//fprintf(out,"*v%d := v%d\n",current->code.u.assign.left->u.var_no,current->code.u.assign.right->u.var_no);			
 				}
 			}
 			else
@@ -932,128 +967,289 @@ void printcode(ics* head,sym* table_sym)
 				if(table_sym[current->code.u.assign.left->u.var_no].type==INT)
 				{
 					//printf("v%d := *v%d\n",current->code.u.assign.left->u.var_no,current->code.u.assign.right->u.var_no);
-					fprintf(out,"v%d := *v%d\n",current->code.u.assign.left->u.var_no,current->code.u.assign.right->u.var_no);
+					fprintf(out,"lw $t1, %d($sp)\n",table_sym[current->code.u.assign.right->u.var_no].offset);
+					fprintf(out,"lw $t1, 0($t1)\n");
+					fprintf(out,"sw $t1, %d($sp)\n",table_sym[current->code.u.assign.left->u.var_no].offset);
+					//fprintf(out,"sw $t2, 0($t1)\n");
+					//fprintf(out,"v%d := *v%d\n",current->code.u.assign.left->u.var_no,current->code.u.assign.right->u.var_no);
+				
 				}
 				else
 				{
+					fprintf(out,"lw $t1, %d($sp)\n",table_sym[current->code.u.assign.right->u.var_no].offset);
+					fprintf(out,"lw $t2, %d($sp)\n",table_sym[current->code.u.assign.left->u.var_no].offset);
+					fprintf(out,"lw $t3, 0($t1)\n");
+					fprintf(out,"sw $t3, 0($t2)\n");
 					//printf("*v%d := *v%d\n",current->code.u.assign.left->u.var_no,current->code.u.assign.right->u.var_no);
-					fprintf(out,"*v%d := *v%d\n",current->code.u.assign.left->u.var_no,current->code.u.assign.right->u.var_no);			
+					//fprintf(out,"*v%d := *v%d\n",current->code.u.assign.left->u.var_no,current->code.u.assign.right->u.var_no);			
 				}
 			}
 			
 		}
 		else if(current->code.kind==ADD)
 		{
-			if(table_sym[current->code.u.binop.result->u.var_no].type==STARINT)
-			fprintf(out,"*");
-			fprintf(out,"v%d := ",current->code.u.binop.result->u.var_no);
+			fprintf(out,"lw $t1, %d($sp)\n",table_sym[current->code.u.binop.op1->u.var_no].offset);
 			if(table_sym[current->code.u.binop.op1->u.var_no].type==STARINT)
-			fprintf(out,"*");
-			fprintf(out,"v%d + ",current->code.u.binop.op1->u.var_no);
+			fprintf(out,"lw $t1, 0($t1)\n");
+			//fprintf(out,"v%d := ",current->code.u.binop.result->u.var_no);
+			fprintf(out,"lw $t2, %d($sp)\n",table_sym[current->code.u.binop.op2->u.var_no].offset);
 			if(table_sym[current->code.u.binop.op2->u.var_no].type==STARINT)
-			fprintf(out,"*");
-			fprintf(out,"v%d\n",current->code.u.binop.op2->u.var_no);
+			fprintf(out,"lw $t2, 0($t2)\n");
+			fprintf(out,"add $t3, $t1, $t2\n");
+			if(table_sym[current->code.u.binop.result->u.var_no].type==STARINT)
+			{
+				fprintf(out,"lw $t4, %d($sp)\n",table_sym[current->code.u.binop.result->u.var_no].offset);
+				fprintf(out,"sw $t3, 0($t4)\n");
+			}
+			else
+			{
+				fprintf(out,"sw $t3, %d($sp)\n",table_sym[current->code.u.binop.result->u.var_no].offset);
+			}
+			
 		}
 		else if(current->code.kind==SUB)
 		{
-
-			if(table_sym[current->code.u.binop.result->u.var_no].type==STARINT)
-			fprintf(out,"*");
-			fprintf(out,"v%d := ",current->code.u.binop.result->u.var_no);
+			fprintf(out,"lw $t1, %d($sp)\n",table_sym[current->code.u.binop.op1->u.var_no].offset);
 			if(table_sym[current->code.u.binop.op1->u.var_no].type==STARINT)
-			fprintf(out,"*");
-			fprintf(out,"v%d - ",current->code.u.binop.op1->u.var_no);
+			fprintf(out,"lw $t1, 0($t1)\n");
+			//fprintf(out,"v%d := ",current->code.u.binop.result->u.var_no);
+			fprintf(out,"lw $t2, %d($sp)\n",table_sym[current->code.u.binop.op2->u.var_no].offset);
 			if(table_sym[current->code.u.binop.op2->u.var_no].type==STARINT)
-			fprintf(out,"*");
-			fprintf(out,"v%d\n",current->code.u.binop.op2->u.var_no);}
+			fprintf(out,"lw $t2, 0($t2)\n");
+			fprintf(out,"sub $t3, $t1, $t2\n");
+			if(table_sym[current->code.u.binop.result->u.var_no].type==STARINT)
+			{
+				fprintf(out,"lw $t4, %d($sp)\n",table_sym[current->code.u.binop.result->u.var_no].offset);
+				fprintf(out,"sw $t3, 0($t4)\n");
+			}
+			else
+			{
+				fprintf(out,"sw $t3, %d($sp)\n",table_sym[current->code.u.binop.result->u.var_no].offset);
+			}
+		}	
 		else if(current->code.kind==MUL)
 		{
-
-			if(table_sym[current->code.u.binop.result->u.var_no].type==STARINT)
-			fprintf(out,"*");
-			fprintf(out,"v%d := ",current->code.u.binop.result->u.var_no);
+			fprintf(out,"lw $t1, %d($sp)\n",table_sym[current->code.u.binop.op1->u.var_no].offset);
 			if(table_sym[current->code.u.binop.op1->u.var_no].type==STARINT)
-			fprintf(out,"*");
-			fprintf(out,"v%d * ",current->code.u.binop.op1->u.var_no);
+			fprintf(out,"lw $t1, 0($t1)\n");
+			//fprintf(out,"v%d := ",current->code.u.binop.result->u.var_no);
+			fprintf(out,"lw $t2, %d($sp)\n",table_sym[current->code.u.binop.op2->u.var_no].offset);
 			if(table_sym[current->code.u.binop.op2->u.var_no].type==STARINT)
-			fprintf(out,"*");
-			fprintf(out,"v%d\n",current->code.u.binop.op2->u.var_no);
+			fprintf(out,"lw $t2, 0($t2)\n");
+			fprintf(out,"mul $t3, $t1, $t2\n");
+			if(table_sym[current->code.u.binop.result->u.var_no].type==STARINT)
+			{
+				fprintf(out,"lw $t4, %d($sp)\n",table_sym[current->code.u.binop.result->u.var_no].offset);
+				fprintf(out,"sw $t3, 0($t4)\n");
+			}
+			else
+			{
+				fprintf(out,"sw $t3, %d($sp)\n",table_sym[current->code.u.binop.result->u.var_no].offset);
+			}
 		}
 		else if(current->code.kind==DIV)
 		{
-			if(table_sym[current->code.u.binop.result->u.var_no].type==STARINT)
-			fprintf(out,"*");
-			fprintf(out,"v%d := ",current->code.u.binop.result->u.var_no);
+			fprintf(out,"lw $t1, %d($sp)\n",table_sym[current->code.u.binop.op1->u.var_no].offset);
 			if(table_sym[current->code.u.binop.op1->u.var_no].type==STARINT)
-			fprintf(out,"*");
-			fprintf(out,"v%d / ",current->code.u.binop.op1->u.var_no);
+			fprintf(out,"lw $t1, 0($t1)\n");
+			//fprintf(out,"v%d := ",current->code.u.binop.result->u.var_no);
+			fprintf(out,"lw $t2, %d($sp)\n",table_sym[current->code.u.binop.op2->u.var_no].offset);
 			if(table_sym[current->code.u.binop.op2->u.var_no].type==STARINT)
-			fprintf(out,"*");
-			fprintf(out,"v%d\n",current->code.u.binop.op2->u.var_no);
+			fprintf(out,"lw $t2, 0($t2)\n");
+			fprintf(out,"div $t1, $t2\n");
+			fprintf(out,"mflo $t3\n");
+			if(table_sym[current->code.u.binop.result->u.var_no].type==STARINT)
+			{
+				fprintf(out,"lw $t4, %d($sp)\n",table_sym[current->code.u.binop.result->u.var_no].offset);
+				fprintf(out,"sw $t3, 0($t4)\n");
+			}
+			else
+			{
+				fprintf(out,"sw $t3, %d($sp)\n",table_sym[current->code.u.binop.result->u.var_no].offset);
+			}
 		}
 		else if(current->code.kind==READ)
 		{
-			fprintf(out,"READ v%d\n",current->code.u.dec_val.dec_val->u.var_no);
+			fprintf(out,"addi $sp, $sp, -%d\n",offsetnow);
+			fprintf(out,"sw $ra, 0($sp)\n");
+			fprintf(out,"jal read\n");
+			fprintf(out,"lw $ra,0($sp)\n");
+			fprintf(out,"addi $sp, $sp, %d\n",offsetnow);
+			fprintf(out,"sw $v0, %d($sp)\n",table_sym[current->code.u.dec_val.dec_val->u.var_no].offset);
 		}
 		else if(current->code.kind==WRITE)
 		{
 			if(table_sym[current->code.u.args.args_num].type==STARINT)
 			{
-
-				fprintf(out,"WRITE *v%d\n",current->code.u.args.args_num);
+				fprintf(out,"lw $t1, %d($sp)\n",table_sym[current->code.u.args.args_num].offset);
+				fprintf(out,"lw $a0, 0($t1)\n");
+				fprintf(out,"addi $sp, $sp, -%d\n",offsetnow);
+				fprintf(out,"sw $ra, 0($sp)\n");
+				fprintf(out,"jal write\n");
+				fprintf(out,"lw $ra,0($sp)\n");
+				fprintf(out,"addi $sp, $sp, %d\n",offsetnow);
+				//fprintf(out,"WRITE *v%d\n",current->code.u.args.args_num);
 			}
 			else{
-			//printf("WRITE v%d\n",current->code.u.args.args_num);
-			fprintf(out,"WRITE v%d\n",current->code.u.args.args_num);
+				fprintf(out,"lw $a0, %d($sp)\n",table_sym[current->code.u.args.args_num].offset);
+		//		fprintf(out,"lw $a0, 0($t1)\n");
+				fprintf(out,"addi $sp, $sp, -%d\n",offsetnow);
+				fprintf(out,"sw $ra, 0($sp)\n");
+				fprintf(out,"jal write\n");
+				fprintf(out,"lw $ra,0($sp)\n");
+				fprintf(out,"addi $sp, $sp, %d\n",offsetnow);
 			}
 		}
 		else if(current->code.kind==ARGS)
 		{
-			//printf("ARG v%d\n",current->code.u.args.args_num);
-			fprintf(out,"ARG v%d\n",current->code.u.args.args_num);
-		}
+		//	printf("ARG v%d\n",current->code.u.args.args_num);
+			int valnum=0;
+			ics * temp=current;
+			//fprintf(out,"ARG v%d\n",current->code.u.args.args_num);
+			while(temp->code.kind==ARGS)
+			{
+				temp=temp->next;
+				valnum++;
+			}
+		//	printf("%d\n",temp->code.kind);
+			char* funcname=table_sym[temp->code.u.assign.right->u.var_no].ID;
+			temp=head;
+		//	printf("%s\n",funcname);
+			while(temp->code.kind!=DEC ||strcmp(table_sym[temp->code.u.dec_val.dec_val->u.var_no].ID,funcname))
+			{
+				temp=temp->next;
+			}
+			//printf("find the temp!\n");
+			//printf("%d\n",valnum);
+			while(valnum--)
+			{
+				temp=temp->next;
+			}
+			while(current->code.kind==ARGS)
+			{
+				fprintf(out,"lw $t1, %d($sp)\n",table_sym[current->code.u.args.args_num].offset);
+				fprintf(out,"sw $t1, %d($sp)\n",table_sym[temp->code.u.dec_val.dec_val->u.var_no].offset);
+//				printf("arg success!\n");
+				current=current->next;
+				temp=temp->prev;
+			}
+			current=current->prev;
+	}
 		else if(current->code.kind==GOTO)
 		{
 			//printf("GOTO label%d\n",current->code.u.label.label_num);
-			fprintf(out,"GOTO label%d\n",current->code.u.label.label_num);
+			fprintf(out,"j label%d\n",current->code.u.label.label_num);
 		}
 		else if(current->code.kind==LABEL)
 		{
 			//printf("LABEL label%d :\n",current->code.u.label.label_num);
-			fprintf(out,"LABEL label%d :\n",current->code.u.label.label_num);
+			fprintf(out,"label%d:\n",current->code.u.label.label_num);
 		}
 		else if(current->code.kind==CALL)
 		{
 			//printf("v%d := CALL %s\n",current->code.u.assign.left->u.var_no,table_sym[current->code.u.assign.right->u.var_no].ID);
+			fprintf(out,"lw $t1, 0($sp)\n");
+			fprintf(out,"li $t2, 4\n");
+			fprintf(out,"mul $t2, $t2, $t1\n");
+			//fprintf(out,"addi $t1, %d",offsetnow);
+			fprintf(out,"la $t3, %d($sp)\n",offsetnow);
+			fprintf(out,"add $t3, $t2, $t3\n");
+			fprintf(out,"sw $ra, ($t3)\n");
+			fprintf(out,"addi $t1, $t1, 1\n");
+			fprintf(out,"sw $t1, 0($sp)\n");
+			fprintf(out,"jal %s\n",table_sym[current->code.u.assign.right->u.var_no].ID);
+			//printf("v%d := CALL %s\n",current->code.u.assign.left->u.var_no,table_sym[current->code.u.assign.right->u.var_no].ID);
+			fprintf(out,"lw $t1, 0($sp)\n");
+			fprintf(out,"addi $t1, $t1, -1\n");
+			fprintf(out,"sw $t1, 0($sp)\n");
+			fprintf(out,"li $t2, 4\n");
+			fprintf(out,"mul $t2, $t2, $t1\n");
+			//fprintf(out,"addi $t1, %d",offsetnow);
+			fprintf(out,"la $t3, %d($sp)\n",offsetnow);
+			fprintf(out,"add $t3, $t2, $t3\n");
+			fprintf(out,"lw $ra, ($t3)\n");
 			if(table_sym[current->code.u.assign.left->u.var_no].type==STARINT)
-			fprintf(out,"*");
-			fprintf(out,"v%d := CALL %s\n",current->code.u.assign.left->u.var_no,table_sym[current->code.u.assign.right->u.var_no].ID);
+			{
+				fprintf(out,"lw $t1, %d($sp)\n",table_sym[current->code.u.assign.left->u.var_no].offset);
+				fprintf(out,"sw $v0, 0($t1)\n");
+			//	fprintf(out,"v%d := CALL %s\n",current->code.u.assign.left->u.var_no,table_sym[current->code.u.assign.right->u.var_no].ID);
+			}
+			else
+			{
+				fprintf(out,"sw $v0, %d($sp)\n",table_sym[current->code.u.assign.left->u.var_no].offset);
+			}
+			
 		}
 		else if(current->code.kind==COND_N)
 		{
-			fprintf(out,"IF ");
 			if(table_sym[current->code.u.cond_nval.t1].type==STARINT)
-			fprintf(out,"*");
-			fprintf(out,"v%d ",current->code.u.cond_nval.t1);
-			fprintf(out,"%s ",current->code.u.cond_nval.op);
+			{
+				fprintf(out,"lw $t1, %d($sp)\n",table_sym[current->code.u.cond_nval.t1].offset);
+				fprintf(out,"lw $t1, 0($t1)\n");
+			}
+			else
+			{
+				fprintf(out,"lw $t1, %d($sp)\n",table_sym[current->code.u.cond_nval.t1].offset);
+			}
 			if(table_sym[current->code.u.cond_nval.t2].type==STARINT)
-			fprintf(out,"*");
-			fprintf(out,"v%d",current->code.u.cond_nval.t2);
+			{
+				fprintf(out,"lw $t2, %d($sp)\n",table_sym[current->code.u.cond_nval.t2].offset);
+				fprintf(out,"lw $t2, 0($t2)\n");
+			}
+			else
+			{
+				fprintf(out,"lw $t2, %d($sp)\n",table_sym[current->code.u.cond_nval.t2].offset);
+			}
+			if(!strcmp(current->code.u.cond_nval.op,"=="))
+			{
+				fprintf(out,"beq");
+			}
+			else if(!strcmp(current->code.u.cond_nval.op,"!="))
+			{
+				fprintf(out,"bne");
+			}
+			else if(!strcmp(current->code.u.cond_nval.op,">"))
+			{
+				fprintf(out,"bgt");
+			}
+			else if(!strcmp(current->code.u.cond_nval.op,"<"))
+			{
+				fprintf(out,"blt");
+			}
+			else if(!strcmp(current->code.u.cond_nval.op,">="))
+			{
+				fprintf(out,"bge");
+			}
+			else if(!strcmp(current->code.u.cond_nval.op,"<="))
+			{
+				fprintf(out,"ble");
+			}
+			//fprintf(out,"%s ",current->code.u.cond_nval.op);
+			fprintf(out," $t1, $t2, ");
+//			fprintf(out,"v%d",current->code.u.cond_nval.t2);
 			//printf("IF v%d %s v%d GOTO label%d\nGOTO label%d\n",current->code.u.cond_nval.t1,current->code.u.cond_nval.op,current->code.u.cond_nval.t2,current->code.u.cond_nval.lt,current->code.u.cond_nval.lf);
-			fprintf(out," GOTO label%d\nGOTO label%d\n",current->code.u.cond_nval.lt,current->code.u.cond_nval.lf);
+			fprintf(out,"label%d\nj label%d\n",current->code.u.cond_nval.lt,current->code.u.cond_nval.lf);
 		}
 		else if(current->code.kind==COND_O)
 		{
 			//printf("IF v%d != #0 GOTO label%d\nGOTO label%d\n",current->code.u.cond_oval.t1,current->code.u.cond_oval.lt,current->code.u.cond_oval.lf);
-			fprintf(out,"IF ");
-			if(table_sym[current->code.u.cond_oval.t1].type==STARINT)
-			fprintf(out,"*");
-			fprintf(out,"v%d != #0 GOTO label%d\nGOTO label%d\n",current->code.u.cond_oval.t1,current->code.u.cond_oval.lt,current->code.u.cond_oval.lf);
+			if(table_sym[current->code.u.cond_nval.t1].type==STARINT)
+			{
+				fprintf(out,"lw $t1, %d($sp)\n",table_sym[current->code.u.cond_oval.t1].offset);
+				fprintf(out,"lw $t1, 0($t1)\n");
+			}
+			else
+			{
+				fprintf(out,"lw $t1, %d($sp)\n",table_sym[current->code.u.cond_oval.t1].offset);
+			}
+			fprintf(out,"li $t2, 0\n");
+			fprintf(out,"bne $t1, $t2 ");
+			fprintf(out,"label%d\nj label%d\n",current->code.u.cond_oval.lt,current->code.u.cond_oval.lf);
 		}
 		else if(current->code.kind==DECADDR)
 		{
 			//printf("DEC v%d %d\n",current->code.u.dec_addr.valid,current->code.u.dec_addr.size*4);
-			fprintf(out,"DEC v%d %d\n",current->code.u.dec_addr.valid,current->code.u.dec_addr.size*4);
+			//fprintf(out,"DEC v%d %d\n",current->code.u.dec_addr.valid,current->code.u.dec_addr.size*4);
 			
 		}
 		else if(current->code.kind==ADDR)
@@ -1062,16 +1258,27 @@ void printcode(ics* head,sym* table_sym)
 			{
 				//printf("v%d := v%d * #4\n",current->code.u.addr.bias->u.var_no,current->code.u.addr.bias->u.var_no);
 				//printf("v%d := v%d + v%d\n",current->code.u.addr.left->u.var_no,current->code.u.addr.right->u.var_no,current->code.u.addr.bias->u.var_no);
-				fprintf(out,"v%d := v%d * #4\n",current->code.u.addr.bias->u.var_no,current->code.u.addr.bias->u.var_no);
-				fprintf(out,"v%d := v%d + v%d\n",current->code.u.addr.left->u.var_no,current->code.u.addr.right->u.var_no,current->code.u.addr.bias->u.var_no);
+				fprintf(out,"lw $t1, %d($sp)\n",table_sym[current->code.u.addr.bias->u.var_no].offset);
+				fprintf(out,"li $t2, 4\n");
+				fprintf(out,"mul $t1, $t1, $t2\n");
+				//fprintf(out,"v%d := v%d * #4\n",current->code.u.addr.bias->u.var_no,current->code.u.addr.bias->u.var_no);
+				fprintf(out,"lw $t3, %d($sp)\n",table_sym[current->code.u.addr.right->u.var_no].offset);
+				fprintf(out,"add $t4, $t3, $t1\n");
+				fprintf(out,"sw $t4, %d($sp)\n",table_sym[current->code.u.addr.left->u.var_no].offset);
+				//fprintf(out,"v%d := v%d + v%d\n",current->code.u.addr.left->u.var_no,current->code.u.addr.right->u.var_no,current->code.u.addr.bias->u.var_no);
 			
 			}
 			else{
-				//printf("v%d := v%d * #4\n",current->code.u.addr.bias->u.var_no,current->code.u.addr.bias->u.var_no);
-				//printf("v%d := &v%d + v%d\n",current->code.u.addr.left->u.var_no,current->code.u.addr.right->u.var_no,current->code.u.addr.bias->u.var_no);
-				fprintf(out,"v%d := v%d * #4\n",current->code.u.addr.bias->u.var_no,current->code.u.addr.bias->u.var_no);
-				fprintf(out,"v%d := &v%d + v%d\n",current->code.u.addr.left->u.var_no,current->code.u.addr.right->u.var_no,current->code.u.addr.bias->u.var_no);
-			}
+					//printf("v%d := v%d * #4\n",current->code.u.addr.bias->u.var_no,current->code.u.addr.bias->u.var_no);
+					//printf("v%d := &v%d + v%d\n",current->code.u.addr.left->u.var_no,current->code.u.addr.right->u.var_no,current->code.u.addr.bias->u.var_no);
+					fprintf(out,"lw $t1, %d($sp)\n",table_sym[current->code.u.addr.bias->u.var_no].offset);
+					fprintf(out,"li $t2, 4\n");
+					fprintf(out,"mul $t1, $t1, $t2\n");
+					//fprintf(out,"v%d := v%d * #4\n",current->code.u.addr.bias->u.var_no,current->code.u.addr.bias->u.var_no);
+					fprintf(out,"la $t3, %d($sp)\n",table_sym[current->code.u.addr.right->u.var_no].offset);
+					fprintf(out,"add $t4, $t3, $t1\n");
+					fprintf(out,"sw $t4, %d($sp)\n",table_sym[current->code.u.addr.left->u.var_no].offset);
+				}
 		}
 		current=current->next;
 	}
@@ -1084,7 +1291,7 @@ ics* translate(node*head,ics* current,sym* table_sym)
 	else if(!strcmp(head->name,"FunDec"))
 	{
 		current=translate_func(head,table_sym,current);
-		printf("translate end!\n");
+//		printf("translate end!\n");
 	}
 	else{
 		//printf("now is %s\n",head->name);

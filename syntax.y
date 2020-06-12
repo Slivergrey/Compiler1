@@ -57,7 +57,7 @@ Program:
 ExtDefList{
 	$$=gentree("Program",$1,NULL);
 	if(!ERROR){
-		pre($$,0);
+	//	pre($$,0);
 //		errorcheck($$);
 		gencode($$);
 		}
